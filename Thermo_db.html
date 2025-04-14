@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thermodynamics Visualization Dashboard</title>
+  <style>
+    :root {
+      --bg-light: #f5f5f5;
+      --text-light: #222;
+      --bg-dark: #1a1a1a;
+      --text-dark: #f0f0f0;
+      --card-radius: 15px;
+      --primary-color: #4caf50;
+      --font-main: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+      transition: all 0.3s ease-in-out;
+    }
+
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
+    }
+
+    body.dark {
+      background: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    header {
+      padding: 20px;
+      text-align: center;
+      font-size: 2em;
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--card-radius);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 1000px;
+      margin-bottom: 2rem;
+    }
+
+    body.dark .card {
+      background: #2e2e2e;
+    }
+
+    label, select, input {
+      display: block;
+      margin: 10px 0;
+      font-size: 1rem;
+    }
+
+    canvas {
+      width: 100%;
+      height: 400px;
+      background: #fff;
+      border-radius: var(--card-radius);
+    }
+
+    .output {
+      font-size: 1.1rem;
+      margin-top: 1rem;
+    }
+
+    .dark-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      cursor: pointer;
+      font-size: 1.5rem;
+    }
+  </style>
+</head>
+<body class="light">
+
+<header>
+  🌡️ Thermodynamics Visualization Dashboard
+</header>
+
+<div class="dark-toggle" onclick="toggleDarkMode()">🌓</div>
+
+<div class="container">
+  <div class="card">
+    <h2>Choose Thermodynamic Process</h2>
+    <select id="processSelect" onchange="updateProcess()">
+      <option value="isothermal">Isothermal</option>
+      <option value="adiabatic">Adiabatic</option>
+      <option value="isobaric">Isobaric</option>
+      <option value="isochoric">Isochoric</option>
+    </select>
+
+    <label>Initial Pressure (P<sub>1</sub>) [Pa]</label>
+    <input type="number" id="p1" value="101325">
+
+    <label>Initial Volume (V<sub>1</sub>) [m³]</label>
+    <input type="number" id="v1" value="0.01">
+
+    <label>Final Volume (V<sub>2</sub>) [m³]</label>
+    <input type="number" id="v2" value="0.02">
+
+    <label>Initial Temperature (T<sub>1</sub>) [K]</label>
+    <input type="number" id="t1" value="300">
+
+    <label>γ (Adiabatic Index)</label>
+    <input type="number" id="gamma" value="1.4" step="0.01">
+
+    <button onclick="calculate()">Calculate & Visualize</button>
+
+    <div class="output" id="output"></div>
+  </div>
+
+  <div class="card">
+    <h2>P-V Diagram</h2>
+    <canvas id="pvCanvas"></canvas>
+  </div>
+</div>
+
+<script>
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+    document.body.classList.toggle("light");
+  }
+
+  function updateProcess() {
+    document.getElementById("output").innerHTML = "";
+    clearCanvas();
+  }
+
+  function calculate() {
+    const p1 = parseFloat(document.getElementById("p1").value);
+    const v1 = parseFloat(document.getElementById("v1").value);
+    const v2 = parseFloat(document.getElementById("v2").value);
+    const t1 = parseFloat(document.getElementById("t1").value);
+    const gamma = parseFloat(document.getElementById("gamma").value);
+    const R = 8.314; // J/mol-K
+    let process = document.getElementById("processSelect").value;
+
+    let resultHTML = `<strong>Process:</strong> ${process.toUpperCase()}<br/>`;
+
+    let work = 0, q = 0, deltaU = 0;
+
+    if (process === "isothermal") {
+      work = p1 * v1 * Math.log(v2 / v1);
+      deltaU = 0;
+      q = work;
+    } else if (process === "adiabatic") {
+      work = (p1 * v1 - p1 * Math.pow(v1 / v2, gamma)) / (gamma - 1);
+      deltaU = -work;
+      q = 0;
+    } else if (process === "isobaric") {
+      work = p1 * (v2 - v1);
+      deltaU = (3 / 2) * R * (t1 + 50 - t1); // ΔT assumed as 50K for demo
+      q = work + deltaU;
+    } else if (process === "isochoric") {
+      work = 0;
+      deltaU = (3 / 2) * R * (t1 + 50 - t1); // ΔT assumed as 50K
+      q = deltaU;
+    }
+
+    resultHTML += `Work Done (W): ${work.toFixed(2)} J<br/>`;
+    resultHTML += `Change in Internal Energy (ΔU): ${deltaU.toFixed(2)} J<br/>`;
+    resultHTML += `Heat Added/Removed (Q): ${q.toFixed(2)} J`;
+
+    document.getElementById("output").innerHTML = resultHTML;
+    drawPVDiagram(process, p1, v1, v2, gamma);
+  }
+
+  function clearCanvas() {
+    let canvas = document.getElementById("pvCanvas");
+    let ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawPVDiagram(process, p1, v1, v2, gamma) {
+    let canvas = document.getElementById("pvCanvas");
+    let ctx = canvas.getContext("2d");
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const margin = 50;
+    const width = canvas.width - 2 * margin;
+    const height = canvas.height - 2 * margin;
+
+    const numPoints = 100;
+    ctx.beginPath();
+    ctx.moveTo(margin, height + margin);
+
+    for (let i = 0; i <= numPoints; i++) {
+      let v = v1 + (v2 - v1) * (i / numPoints);
+      let p;
+
+      if (process === "isothermal") {
+        p = p1 * v1 / v;
+        ctx.strokeStyle = "blue";
+      } else if (process === "adiabatic") {
+        p = p1 * Math.pow(v1 / v, gamma);
+        ctx.strokeStyle = "red";
+      } else if (process === "isobaric") {
+        p = p1;
+        ctx.strokeStyle = "green";
+      } else if (process === "isochoric") {
+        v = v1;
+        p = p1 + (i / numPoints) * 50000;
+        ctx.strokeStyle = "orange";
+      }
+
+      let x = margin + ((v - v1) / (v2 - v1)) * width;
+      let y = height + margin - ((p - p1) / (p1 * 2)) * height;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    ctx.stroke();
+  }
+</script>
+
+</body>
+</html>
